@@ -1,0 +1,62 @@
+{
+    "name": "baseline",
+    "description": "Smoke-test scenario: 100 agents, three personas, one mid-run broadcast.",
+    "seed": 42,
+    "n_agents": 100,
+    "max_ticks": 50,
+    "personas": [
+        {
+            "id": "skeptic",
+            "description": "Distrusts institutional messaging; updates slowly and only toward close opinions.",
+            "opinion_prior_mean": 0.25,
+            "opinion_prior_std": 0.10,
+            "confidence_radius": 0.15,
+            "update_weight": 0.20,
+            "memory_capacity": 16,
+            "tags": ["skeptic", "low-trust"]
+        },
+        {
+            "id": "loyalist",
+            "description": "Aligns strongly with received messaging; updates readily toward high-opinion neighbours.",
+            "opinion_prior_mean": 0.75,
+            "opinion_prior_std": 0.10,
+            "confidence_radius": 0.30,
+            "update_weight": 0.50,
+            "memory_capacity": 16,
+            "tags": ["loyalist", "high-trust"]
+        },
+        {
+            "id": "neutral",
+            "description": "No prior allegiance; broad confidence radius, moderate update rate.",
+            "opinion_prior_mean": 0.50,
+            "opinion_prior_std": 0.15,
+            "confidence_radius": 0.40,
+            "update_weight": 0.35,
+            "memory_capacity": 8,
+            "tags": ["neutral"]
+        }
+    ],
+    "persona_distribution": {
+        "skeptic": 0.30,
+        "loyalist": 0.30,
+        "neutral": 0.40
+    },
+    "topology": {
+        "kind": "watts_strogatz",
+        "params": {
+            "k": 6,
+            "beta": 0.10
+        }
+    },
+    "llm_model": "claude-haiku-4-5-20251001",
+    "interventions": [
+        {
+            "tick": 25,
+            "kind": "broadcast",
+            "payload": {
+                "message": "An official statement reverses an earlier disciplinary decision.",
+                "intensity": 0.5
+            }
+        }
+    ]
+}
