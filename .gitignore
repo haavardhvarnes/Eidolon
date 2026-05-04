@@ -1,0 +1,32 @@
+# Per-run artefacts (reproducibility comes from seed + manifest, not output)
+/runs/
+*.duckdb
+*.duckdb.wal
+
+# Julia tooling output (Manifest.toml IS committed — SciML app convention)
+/docs/build/
+/docs/site/
+*.cov
+*.jl.cov
+*.jl.mem
+/coverage/
+.JuliaFormatter.toml.bak
+
+# Editor / OS cruft
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Secrets — defensive, even though none are checked in today
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Local Claude state that should not leak
+.claude/settings.local.json

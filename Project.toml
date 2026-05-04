@@ -1,0 +1,31 @@
+name = "Eidolon"
+uuid = "8f3e1d2a-7c4b-4e5f-9a1b-6d2c3e4f5a6b"
+authors = ["Havard <haavardhvarnes@gmail.com>"]
+version = "0.1.0-DEV"
+
+[deps]
+Agents = "46ada45e-f475-11e8-01d0-f70cc89e6671"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+DuckDB = "d2f5444f-75bc-4fdf-ac35-56f514c445e1"
+Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+PromptingTools = "670122d1-24a8-4d70-bfce-740807c42192"
+
+[compat]
+Agents = "6"
+DataFrames = "1"
+Distributions = "0.25"
+DuckDB = "1"
+Graphs = "1"
+HTTP = "1"
+JSON = "0.21"
+PromptingTools = "0.40 - 0.80"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
