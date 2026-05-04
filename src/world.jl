@@ -1,1 +1,100 @@
-# Phase 2 — GraphSpace and world initialisation.
+# Phase 2 — GraphSpace, world initialisation, and the headless run loop.
+
+using Agents
+using DataFrames
+using Distributions: Categorical, Normal
+using Graphs: watts_strogatz
+using Random: Xoshiro
+
+"""
+    initialize_world(cfg::WorldConfig; brain::AbstractBrain = NullBrain())
+        -> StandardABM
+
+Build a `StandardABM` from a [`WorldConfig`](@ref):
+
+- Watts–Strogatz small-world graph (Graphs.jl) wrapped in a `GraphSpace`.
+- One `EidolonAgent` per graph vertex; its persona is sampled from
+  `cfg.persona_distribution`, its opinion from
+  `Normal(persona.opinion_prior_mean, persona.opinion_prior_std)`
+  clamped to `[0, 1]`.
+- Model RNG is `Xoshiro(cfg.seed)` — the only stochasticity source
+  under `NullBrain` (ADR-0001 reproducibility contract).
+- `cfg` and `brain` live in the model's properties as `model.cfg` /
+  `model.brain` so `agent_step!` can reach them.
+"""
+function initialize_world(cfg::WorldConfig; brain::AbstractBrain = NullBrain())
+    cfg.topology.kind == "watts_strogatz" || throw(ArgumentError(
+        "initialize_world: unsupported topology kind \"$(cfg.topology.kind)\" " *
+        "(v1 supports: watts_strogatz)",
+    ))
+
+    rng = Xoshiro(cfg.seed)
+
+    k = Int(cfg.topology.params["k"])
+    β = Float64(cfg.topology.params["beta"])
+    graph = watts_strogatz(cfg.n_agents, k, β; rng = rng)
+    space = GraphSpace(graph)
+
+    persona_by_id = Dict(p.id => p for p in cfg.personas)
+    properties = Dict{Symbol, Any}(:cfg => cfg, :brain => brain)
+
+    model = StandardABM(
+        EidolonAgent,
+        space;
+        agent_step! = agent_step!,
+        rng = rng,
+        properties = properties
+    )
+
+    # Sort persona ids for deterministic sampling — Dict iteration order
+    # is not part of the language guarantee we want to lean on.
+    persona_ids = sort!(collect(keys(cfg.persona_distribution)))
+    weights = [cfg.persona_distribution[id] for id in persona_ids]
+    sampler = Categorical(weights)
+
+    for v in 1:cfg.n_agents
+        idx = rand(rng, sampler)
+        pid = persona_ids[idx]
+        persona = persona_by_id[pid]
+        raw = rand(rng, Normal(persona.opinion_prior_mean, persona.opinion_prior_std))
+        opinion = clamp(raw, 0.0, 1.0)
+        add_agent!(
+            v,
+            model,
+            opinion,
+            persona.confidence_radius,
+            persona.update_weight,
+            pid,
+            String[]
+        )
+    end
+
+    return model
+end
+
+"""
+    run_simulation(cfg::WorldConfig;
+        brain::AbstractBrain = NullBrain(),
+        n_steps::Integer = cfg.max_ticks,
+    )::DataFrame
+
+Build a model from `cfg`, run it for `n_steps`, and return a
+`DataFrame` with one row per agent per tick. Columns:
+`tick`, `agent_id`, `opinion`, `persona_id`. Tick 0 is the initial
+state; tick `n_steps` is the post-final-step state.
+
+Phase 2 deliberately ignores `cfg.interventions` — broadcasts and
+similar live interventions are wired in Phase 5 alongside the
+dashboard.
+"""
+function run_simulation(
+        cfg::WorldConfig;
+        brain::AbstractBrain = NullBrain(),
+        n_steps::Integer = cfg.max_ticks
+)::DataFrame
+    model = initialize_world(cfg; brain = brain)
+    # Interventions are deferred to Phase 5; ignored here.
+    adf, _ = run!(model, n_steps; adata = [:opinion, :persona_id])
+    rename!(adf, :time => :tick, :id => :agent_id)
+    return adf[!, [:tick, :agent_id, :opinion, :persona_id]]
+end

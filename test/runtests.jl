@@ -7,4 +7,5 @@ using Test
     end
 
     include("io_tests.jl")
+    include("world_tests.jl")
 end

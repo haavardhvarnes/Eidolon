@@ -127,7 +127,8 @@ end
 
 function _hydrate_persona(raw, idx::Int)
     ctx = "personas[$idx]"
-    raw isa AbstractDict || throw(SchemaError("$ctx: must be an object, got $(typeof(raw))"))
+    raw isa AbstractDict ||
+        throw(SchemaError("$ctx: must be an object, got $(typeof(raw))"))
     id = _as_string(_require_field(raw, "id", ctx), "id", ctx)
     description = _as_string(_require_field(raw, "description", ctx), "description", ctx)
     mean = _as_float(_require_field(raw, "opinion_prior_mean", ctx), "opinion_prior_mean", ctx)
@@ -150,7 +151,8 @@ end
 
 function _hydrate_topology(raw, n_agents::Int)
     ctx = "topology"
-    raw isa AbstractDict || throw(SchemaError("$ctx: must be an object, got $(typeof(raw))"))
+    raw isa AbstractDict ||
+        throw(SchemaError("$ctx: must be an object, got $(typeof(raw))"))
     kind = _as_string(_require_field(raw, "kind", ctx), "kind", ctx)
     params_raw = _as_object(_require_field(raw, "params", ctx), "params", ctx)
     params = Dict{String, Any}(String(k) => v for (k, v) in params_raw)
@@ -180,7 +182,8 @@ end
 
 function _hydrate_intervention(raw, idx::Int, max_ticks::Int)
     ctx = "interventions[$idx]"
-    raw isa AbstractDict || throw(SchemaError("$ctx: must be an object, got $(typeof(raw))"))
+    raw isa AbstractDict ||
+        throw(SchemaError("$ctx: must be an object, got $(typeof(raw))"))
     tick = _as_int(_require_field(raw, "tick", ctx), "tick", ctx)
     kind = _as_string(_require_field(raw, "kind", ctx), "kind", ctx)
     payload_raw = _as_object(_require_field(raw, "payload", ctx), "payload", ctx)
@@ -195,8 +198,8 @@ end
 
 function _validate_persona_distribution(
         pd::Dict{String, Float64},
-        personas::Vector{AgentPersona},
-    )
+        personas::Vector{AgentPersona}
+)
     persona_ids = Set(p.id for p in personas)
     for k in keys(pd)
         k in persona_ids || throw(SchemaError(
@@ -228,14 +231,15 @@ function _hydrate_world(raw)::WorldConfig
     pd_raw = _as_object(_require_field(raw, "persona_distribution", ctx), "persona_distribution", ctx)
     persona_distribution = Dict{String, Float64}(
         String(k) => _as_float(v, "persona_distribution[\"$k\"]", ctx)
-            for (k, v) in pd_raw
+    for (k, v) in pd_raw
     )
 
     topology = _hydrate_topology(_require_field(raw, "topology", ctx), n_agents)
     llm_model = _as_string(_require_field(raw, "llm_model", ctx), "llm_model", ctx)
 
     interv_raw = _as_array(_require_field(raw, "interventions", ctx), "interventions", ctx)
-    interventions = [_hydrate_intervention(it, i, max_ticks) for (i, it) in enumerate(interv_raw)]
+    interventions = [_hydrate_intervention(it, i, max_ticks)
+                     for (i, it) in enumerate(interv_raw)]
 
     _validate_persona_distribution(persona_distribution, personas)
 
@@ -249,7 +253,7 @@ function _hydrate_world(raw)::WorldConfig
         persona_distribution,
         topology,
         llm_model,
-        interventions,
+        interventions
     )
 end
 
