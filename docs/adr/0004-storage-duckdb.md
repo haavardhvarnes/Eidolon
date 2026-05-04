@@ -1,7 +1,7 @@
 # ADR-0004: Storage backend — DuckDB, one file per run
 
 ## Status
-Proposed — 2026-05-04
+Accepted — 2026-05-04
 
 ## Context
 

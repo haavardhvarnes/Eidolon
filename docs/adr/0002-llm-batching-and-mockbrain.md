@@ -1,7 +1,7 @@
 # ADR-0002: LLM batching strategy, brain interface, and Δ bound
 
 ## Status
-Proposed — 2026-05-04
+Accepted — 2026-05-04
 
 ## Context
 

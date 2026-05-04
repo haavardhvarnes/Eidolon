@@ -1,7 +1,7 @@
 # ADR-0001: Opinion-drift model
 
 ## Status
-Proposed — 2026-05-04
+Accepted — 2026-05-04
 
 ## Context
 
