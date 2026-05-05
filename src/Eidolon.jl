@@ -5,6 +5,7 @@ include("brain.jl")
 include("agents.jl")
 include("world.jl")
 include("store.jl")
+include("sweep.jl")
 
 export AgentPersona,
        GraphTopology,
@@ -32,6 +33,11 @@ export AgentPersona,
        record_meta,
        flush_tick!,
        dump_run,
-       list_runs
+       list_runs,
+       auto_run_id,
+       load_trajectories,
+       load_transcripts,
+       expand_grid,
+       grid_sweep
 
 end # module

@@ -12,4 +12,5 @@ using Test
     include("dump_run_tests.jl")
     include("brain_tests.jl")
     include("replay_tests.jl")
+    include("sweep_tests.jl")
 end
