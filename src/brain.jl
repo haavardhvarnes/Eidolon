@@ -650,3 +650,118 @@ function brain_perturbation(brain::LiveBrain, agent, model)
     out === nothing && return 0.0
     return clamp(out.delta, -brain.delta_cap, brain.delta_cap)
 end
+
+# --- ReplayBrain (ADR-0002 §2) ------------------------------------------
+
+"""
+    ReplayMissingError(tick, agent_id, source)
+
+Thrown by `batch_reflect!(::ReplayBrain, …)` in strict mode when the
+source transcripts table contains no entry for `(tick, agent_id)`.
+"""
+struct ReplayMissingError <: Exception
+    tick::Int
+    agent_id::Int
+    source::String
+end
+
+function Base.showerror(io::IO, e::ReplayMissingError)
+    print(
+        io,
+        "ReplayMissingError: no transcript for tick=", e.tick,
+        ", agent_id=", e.agent_id,
+        " in source run \"", e.source, "\""
+    )
+    return nothing
+end
+
+"""
+    ReplayBrain(deltas, strict, delta_cap, source)
+
+Replays `delta_clamped` values from a prior run's `transcripts` table
+(ADR-0002 §2). Build via [`replay_brain`](@ref). Never writes to the
+DuckDB store — replay is purely read-only.
+
+Fields:
+- `deltas`    — `(tick, agent_id) → delta_clamped` map built at construction.
+- `strict`    — when `true` a missing key throws [`ReplayMissingError`](@ref);
+                when `false` missing keys fall back to `Δ = 0`.
+- `delta_cap` — applied by [`brain_perturbation`](@ref).
+- `source`    — run_id of the source run, used in error messages.
+"""
+struct ReplayBrain <: AbstractBrain
+    deltas::Dict{Tuple{Int, Int}, Float64}
+    strict::Bool
+    delta_cap::Float64
+    source::String
+end
+
+"""
+    replay_brain(source_run_id; strict = true,
+                 delta_cap = brain_delta_cap()) -> ReplayBrain
+
+Open `runs/<source_run_id>/store.duckdb` in `READ_ONLY` mode, read
+every `(tick, agent_id, delta_clamped)` row from `transcripts`, and
+return a [`ReplayBrain`](@ref). Throws `ArgumentError` if the store
+does not exist.
+"""
+function replay_brain(
+        source_run_id::AbstractString;
+        strict::Bool = true,
+        delta_cap::Real = brain_delta_cap()
+)
+    # store_path is defined in store.jl, included after brain.jl; the
+    # forward reference is valid at runtime because the full module is
+    # loaded before any user code calls replay_brain.
+    path = store_path(String(source_run_id))
+    if !isfile(path)
+        throw(ArgumentError(
+            "replay_brain: no DuckDB store for run_id \"$(source_run_id)\" at $path " *
+            "(run a simulation first, or check EIDOLON_RUNS_ROOT)"
+        ))
+    end
+    db = DBInterface.connect(DuckDB.DB, path; readonly = true)
+    deltas = Dict{Tuple{Int, Int}, Float64}()
+    try
+        rows = collect(DBInterface.execute(
+            db,
+            "SELECT tick, agent_id, delta_clamped FROM transcripts"
+        ))
+        sizehint!(deltas, length(rows))
+        for r in rows
+            key = (Int(r.tick), Int(r.agent_id))
+            deltas[key] = Float64(coalesce(r.delta_clamped, 0.0))
+        end
+    finally
+        DBInterface.close!(db)
+    end
+    return ReplayBrain(deltas, strict, Float64(delta_cap), String(source_run_id))
+end
+
+function batch_reflect!(
+        brain::ReplayBrain, model;
+        tick::Integer = abmtime(model) + 1
+)
+    t = Int(tick)
+    agents = sort!(collect(allagents(model)); by = a -> Int(a.id))
+    out = Dict{Int, BrainOutput}()
+    sizehint!(out, length(agents))
+    for a in agents
+        key = (t, Int(a.id))
+        if haskey(brain.deltas, key)
+            out[Int(a.id)] = BrainOutput(brain.deltas[key], "", "")
+        elseif brain.strict
+            throw(ReplayMissingError(t, Int(a.id), brain.source))
+        else
+            out[Int(a.id)] = BrainOutput(0.0, "", "")
+        end
+    end
+    model.brain_outputs = out
+    return out
+end
+
+function brain_perturbation(brain::ReplayBrain, agent, model)
+    out = get(model.brain_outputs, Int(agent.id), nothing)
+    out === nothing && return 0.0
+    return clamp(out.delta, -brain.delta_cap, brain.delta_cap)
+end

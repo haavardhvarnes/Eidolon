@@ -11,4 +11,5 @@ using Test
     include("store_tests.jl")
     include("dump_run_tests.jl")
     include("brain_tests.jl")
+    include("replay_tests.jl")
 end
