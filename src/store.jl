@@ -9,6 +9,7 @@ using DBInterface
 using Dates: DateTime, now, UTC
 using DuckDB
 using JSON
+using Printf: @sprintf
 using TOML
 
 const _SCHEMA_VERSION = 1
@@ -272,4 +273,152 @@ function flush_tick!(db::DuckDB.DB, model, tick::Integer)
         DuckDB.close(appender)
     end
     return nothing
+end
+
+# --- Read-only inspection (ADR-0004 §"Open follow-ups") --------------
+
+_fmt_opinion(x::Real) = @sprintf("%.3f", x)
+_fmt_opinion(::Missing) = "NA"
+
+function _scalar(db::DuckDB.DB, sql::AbstractString, params = ())
+    return only(DBInterface.execute(db, sql, params))
+end
+
+function _print_meta(io::IO, db::DuckDB.DB)
+    println(io, "Meta")
+    rows = collect(DBInterface.execute(
+        db,
+        """
+        SELECT created_at, seed, llm_model, eidolon_version, julia_version
+        FROM meta
+        """
+    ))
+    if isempty(rows)
+        println(io, "  (no meta row recorded)")
+        return nothing
+    end
+    m = first(rows)
+    println(io, "  created_at:      ", m.created_at)
+    println(io, "  seed:            ", m.seed)
+    println(io, "  llm_model:       ", m.llm_model)
+    println(io, "  eidolon_version: ", m.eidolon_version)
+    println(io, "  julia_version:   ", m.julia_version)
+    return nothing
+end
+
+function _print_personas(io::IO, db::DuckDB.DB)
+    rows = collect(DBInterface.execute(db, "SELECT id FROM personas ORDER BY id"))
+    ids = [String(r.id) for r in rows]
+    label = "Personas (" * string(length(ids)) * "):"
+    if isempty(ids)
+        println(io, label, " (none)")
+    else
+        println(io, label, " ", join(ids, ", "))
+    end
+    return nothing
+end
+
+function _print_trajectory(io::IO, db::DuckDB.DB)
+    println(io, "Trajectory")
+    summary = _scalar(
+        db,
+        """
+        SELECT COUNT(*) AS n,
+               MIN(tick) AS first_tick,
+               MAX(tick) AS last_tick,
+               COUNT(DISTINCT agent_id) AS agents
+        FROM trajectory
+        """
+    )
+    if summary.n == 0
+        println(io, "  rows:    0")
+        return nothing
+    end
+    println(io, "  rows:    ", summary.n)
+    println(io, "  ticks:   ", summary.first_tick, "..", summary.last_tick)
+    println(io, "  agents:  ", summary.agents)
+    for (label, t) in (("first", summary.first_tick), ("last", summary.last_tick))
+        stats = _scalar(
+            db,
+            """
+            SELECT AVG(opinion) AS mean,
+                   MIN(opinion) AS lo,
+                   MAX(opinion) AS hi
+            FROM trajectory
+            WHERE tick = ?
+            """,
+            (t,)
+        )
+        println(
+            io,
+            "  tick ", t, " (", label, "): mean=", _fmt_opinion(stats.mean),
+            " min=", _fmt_opinion(stats.lo),
+            " max=", _fmt_opinion(stats.hi)
+        )
+    end
+    return nothing
+end
+
+function _print_aux_counts(io::IO, db::DuckDB.DB)
+    for table in ("memory", "transcripts", "events")
+        n = _scalar(db, "SELECT COUNT(*) AS n FROM $table").n
+        println(io, rpad(uppercasefirst(table) * ":", 13), n, " rows")
+    end
+    return nothing
+end
+
+"""
+    dump_run(run_id::AbstractString; io::IO = stdout) -> Nothing
+
+Print a one-screen, human-readable summary of `runs/<run_id>/store.duckdb`
+to `io`: header, `meta` row, persona ids, trajectory shape + opinion
+stats at the first and last tick, and row counts for `memory`,
+`transcripts`, and `events`. Read-only — opens the DuckDB file with
+`access_mode = READ_ONLY` so the call never takes a write lock and
+never mutates schema. Throws `ArgumentError` if no store exists at the
+resolved path.
+"""
+function dump_run(run_id::AbstractString; io::IO = stdout)
+    path = store_path(run_id)
+    if !isfile(path)
+        throw(ArgumentError(
+            "dump_run: no DuckDB store for run_id \"$(run_id)\" at $path " *
+            "(run a simulation with this run_id first, or check EIDOLON_RUNS_ROOT)",
+        ))
+    end
+    db = DBInterface.connect(DuckDB.DB, path; readonly = true)
+    try
+        println(io, "Run:   ", run_id)
+        println(io, "Store: ", path)
+        println(io)
+        _print_meta(io, db)
+        println(io)
+        _print_personas(io, db)
+        println(io)
+        _print_trajectory(io, db)
+        println(io)
+        _print_aux_counts(io, db)
+    finally
+        DBInterface.close!(db)
+    end
+    return nothing
+end
+
+"""
+    list_runs(; root::AbstractString = runs_root()) -> Vector{String}
+
+Return the sorted ids of runs persisted under `root` — i.e. each
+subdirectory of `root` that contains a `store.duckdb` file. Returns an
+empty vector if `root` does not exist.
+"""
+function list_runs(; root::AbstractString = runs_root())
+    isdir(root) || return String[]
+    ids = String[]
+    for entry in readdir(root)
+        if isfile(joinpath(root, entry, "store.duckdb"))
+            push!(ids, entry)
+        end
+    end
+    sort!(ids)
+    return ids
 end

@@ -20,6 +20,8 @@ export AgentPersona,
        run_simulation,
        open_store,
        record_meta,
-       flush_tick!
+       flush_tick!,
+       dump_run,
+       list_runs
 
 end # module

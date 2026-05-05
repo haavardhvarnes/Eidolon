@@ -9,4 +9,5 @@ using Test
     include("io_tests.jl")
     include("world_tests.jl")
     include("store_tests.jl")
+    include("dump_run_tests.jl")
 end
