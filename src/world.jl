@@ -36,7 +36,12 @@ function initialize_world(cfg::WorldConfig; brain::AbstractBrain = NullBrain())
     space = GraphSpace(graph)
 
     persona_by_id = Dict(p.id => p for p in cfg.personas)
-    properties = Dict{Symbol, Any}(:cfg => cfg, :brain => brain)
+    properties = Dict{Symbol, Any}(
+        :cfg => cfg,
+        :brain => brain,
+        :brain_outputs => Dict{Int, BrainOutput}(),
+        :store => nothing
+    )
 
     model = StandardABM(
         EidolonAgent,
@@ -102,33 +107,42 @@ function run_simulation(
 )::DataFrame
     if run_id === nothing
         model = initialize_world(cfg; brain = brain)
-        # Interventions are deferred to Phase 5; ignored here.
-        adf, _ = run!(model, n_steps; adata = [:opinion, :persona_id])
-        rename!(adf, :time => :tick, :id => :agent_id)
-        return adf[!, [:tick, :agent_id, :opinion, :persona_id]]
+        return _run_loop(model, brain, n_steps)
     end
 
     return open_store(run_id) do db
         record_meta(db, cfg; run_id = run_id)
         model = initialize_world(cfg; brain = brain)
-        ticks = Int[]
-        ids = Int[]
-        opinions = Float64[]
-        persona_ids = String[]
-        _collect_tick!(ticks, ids, opinions, persona_ids, model, 0)
-        flush_tick!(db, model, 0)
-        for t in 1:n_steps
-            step!(model, 1)
-            _collect_tick!(ticks, ids, opinions, persona_ids, model, t)
-            flush_tick!(db, model, t)
-        end
-        return DataFrame(
-            tick = ticks,
-            agent_id = ids,
-            opinion = opinions,
-            persona_id = persona_ids
-        )
+        model.store = db
+        return _run_loop(model, brain, n_steps; db = db)
     end
+end
+
+function _run_loop(
+        model, brain::AbstractBrain, n_steps::Integer;
+        db::Union{Nothing, DuckDB.DB} = nothing
+)::DataFrame
+    ticks = Int[]
+    ids = Int[]
+    opinions = Float64[]
+    persona_ids = String[]
+    _collect_tick!(ticks, ids, opinions, persona_ids, model, 0)
+    db === nothing || flush_tick!(db, model, 0)
+    for t in 1:n_steps
+        # ADR-0002 §1: batch all reflections at the *start* of a tick
+        # so every agent sees the same brain outputs regardless of
+        # update order. NullBrain returns an empty Dict — no LLM cost.
+        batch_reflect!(brain, model; tick = t)
+        step!(model, 1)
+        _collect_tick!(ticks, ids, opinions, persona_ids, model, t)
+        db === nothing || flush_tick!(db, model, t)
+    end
+    return DataFrame(
+        tick = ticks,
+        agent_id = ids,
+        opinion = opinions,
+        persona_id = persona_ids
+    )
 end
 
 function _collect_tick!(ticks, ids, opinions, persona_ids, model, t::Integer)

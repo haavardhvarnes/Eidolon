@@ -10,4 +10,5 @@ using Test
     include("world_tests.jl")
     include("store_tests.jl")
     include("dump_run_tests.jl")
+    include("brain_tests.jl")
 end
