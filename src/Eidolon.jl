@@ -48,6 +48,7 @@ export AgentPersona,
        top_personas,
        TickSnapshot,
        DashboardModel,
-       start_dashboard
+       start_dashboard,
+       stop_dashboard
 
 end # module

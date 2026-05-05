@@ -186,9 +186,9 @@ that should pass before moving on.
 - **Done when:** sensitivity report identifies top-3 personas by influence on a chosen macro metric.
 
 ### Phase 5 — Web Control Panel (`dashboard.jl`)
-- [ ] Stipple UI with start/pause/reset toggles
-- [ ] StipplePlotly network visualisation
-- [ ] "Broadcast" intervention — inject global events into agent memories
+- [x] Stipple UI with start/pause/reset toggles
+- [x] StipplePlotly network visualisation
+- [x] "Broadcast" intervention — inject global events into agent memories
 - **Done when:** a non-Julia user can launch a sim and broadcast an event from the browser.
 
 > Phase 4 is intentionally promoted ahead of the dashboard: headless
