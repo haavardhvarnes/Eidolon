@@ -13,4 +13,5 @@ using Test
     include("brain_tests.jl")
     include("replay_tests.jl")
     include("sweep_tests.jl")
+    include("sensitivity_tests.jl")
 end

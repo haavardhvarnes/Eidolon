@@ -6,6 +6,7 @@ include("agents.jl")
 include("world.jl")
 include("store.jl")
 include("sweep.jl")
+include("sensitivity.jl")
 
 export AgentPersona,
        GraphTopology,
@@ -38,6 +39,11 @@ export AgentPersona,
        load_trajectories,
        load_transcripts,
        expand_grid,
-       grid_sweep
+       grid_sweep,
+       SensitivityDimension,
+       SensitivityResult,
+       opinion_variance_metric,
+       persona_sensitivity,
+       top_personas
 
 end # module
