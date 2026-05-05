@@ -299,22 +299,49 @@ end
 # --- Default dispatch (PromptingTools) -------------------------------
 
 """
+    _pt_schema_for(model_name)
+
+Pick the PromptingTools schema for `model_name` based on its prefix.
+PromptingTools' default registry lookup falls back to `OpenAISchema`
+for unknown names, which silently routes Anthropic models to the
+wrong endpoint — this helper makes the dispatch explicit.
+"""
+function _pt_schema_for(model_name::AbstractString)
+    startswith(model_name, "claude") && return PT.AnthropicSchema()
+    startswith(model_name, "gpt") && return PT.OpenAISchema()
+    return PT.OpenAISchema()
+end
+
+"""
     default_live_dispatch(brain, agent_id, vars)
 
 Default `LiveBrain.dispatch`: calls `PromptingTools.aiextract` against
 the registered template and coerces the response into a
-[`BrainOutput`](@ref). Translates known transient failures into
-[`RetryableError`](@ref) and parsing failures into
-[`SchemaParseError`](@ref). Never invoked under
-`EIDOLON_LLM_MODE=mock` test runs — those inject their own dispatch.
+[`BrainOutput`](@ref). Dispatches through an explicit schema chosen by
+[`_pt_schema_for`](@ref) and reads the API key from the env at call
+time (PromptingTools' preference cache is initialised at module load,
+so a `LocalPreferences.toml` would otherwise win over a runtime
+export). Translates known transient failures into [`RetryableError`](@ref)
+and parsing failures into [`SchemaParseError`](@ref). Never invoked
+under `EIDOLON_LLM_MODE=mock` test runs — those inject their own
+dispatch.
 """
 function default_live_dispatch(brain::LiveBrain, agent_id::Int, vars::NamedTuple)
+    api_key = get(ENV, "ANTHROPIC_API_KEY", "")
+    isempty(api_key) && throw(ArgumentError(
+        "default_live_dispatch: ANTHROPIC_API_KEY is empty. Set it in the env " *
+        "before launching Julia, or inject a stub dispatch via " *
+        "`live_brain(cfg; dispatch = ...)` for tests."
+    ))
+    schema = _pt_schema_for(brain.model_name)
     local msg
     try
         msg = PT.aiextract(
+            schema,
             brain.template;
             return_type = BrainOutput,
             model = brain.model_name,
+            api_key = api_key,
             vars...
         )
     catch err
