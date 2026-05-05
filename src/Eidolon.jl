@@ -7,6 +7,7 @@ include("world.jl")
 include("store.jl")
 include("sweep.jl")
 include("sensitivity.jl")
+include("dashboard.jl")
 
 export AgentPersona,
        GraphTopology,
@@ -44,6 +45,9 @@ export AgentPersona,
        SensitivityResult,
        opinion_variance_metric,
        persona_sensitivity,
-       top_personas
+       top_personas,
+       TickSnapshot,
+       DashboardModel,
+       start_dashboard
 
 end # module

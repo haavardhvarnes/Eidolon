@@ -14,4 +14,5 @@ using Test
     include("replay_tests.jl")
     include("sweep_tests.jl")
     include("sensitivity_tests.jl")
+    include("dashboard_tests.jl")
 end
