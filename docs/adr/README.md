@@ -7,5 +7,5 @@ in [`CLAUDE.md`](../../CLAUDE.md#architecture-decision-records).
 |------|----------|--------------------------------------------|
 | 0001 | Accepted | [Opinion-drift model](0001-opinion-drift-model.md) |
 | 0002 | Accepted | [LLM batching, brain interface, and Δ bound](0002-llm-batching-and-mockbrain.md) |
-| 0003 | —        | Stipple ↔ Agents.jl event-loop bridge (TBD) |
+| 0003 | Accepted | [Stipple ↔ Agents.jl event-loop bridge](0003-stipple-agents-bridge.md) |
 | 0004 | Accepted | [Storage backend — DuckDB](0004-storage-duckdb.md) |
