@@ -8,4 +8,5 @@ using Test
 
     include("io_tests.jl")
     include("world_tests.jl")
+    include("store_tests.jl")
 end

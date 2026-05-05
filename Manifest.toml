@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "0a45835c56deba726a4b052579888b793022c9d2"
+project_hash = "a502894cc5e07f11c01ef851fa2fe57053b406cb"
 
 [[deps.AbstractTrees]]
 git-tree-sha1 = "2d9c9a55f9c93e8887ad391fbae72f8ef55e1177"
@@ -252,7 +252,7 @@ uuid = "2cbbab25-fc8b-58cf-88d4-687a02676033"
 version = "1.5.2+0"
 
 [[deps.Eidolon]]
-deps = ["Agents", "DataFrames", "Distributions", "DuckDB", "Graphs", "HTTP", "JSON", "PromptingTools", "Random", "Statistics"]
+deps = ["Agents", "DBInterface", "DataFrames", "Dates", "Distributions", "DuckDB", "Graphs", "HTTP", "JSON", "PromptingTools", "Random", "Statistics", "TOML"]
 path = "."
 uuid = "8f3e1d2a-7c4b-4e5f-9a1b-6d2c3e4f5a6b"
 version = "0.1.0-DEV"

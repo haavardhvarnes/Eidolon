@@ -4,6 +4,7 @@ include("io.jl")
 include("brain.jl")
 include("agents.jl")
 include("world.jl")
+include("store.jl")
 
 export AgentPersona,
        GraphTopology,
@@ -16,6 +17,9 @@ export AgentPersona,
        EidolonAgent,
        agent_step!,
        initialize_world,
-       run_simulation
+       run_simulation,
+       open_store,
+       record_meta,
+       flush_tick!
 
 end # module

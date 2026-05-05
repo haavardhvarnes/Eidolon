@@ -76,12 +76,19 @@ end
     run_simulation(cfg::WorldConfig;
         brain::AbstractBrain = NullBrain(),
         n_steps::Integer = cfg.max_ticks,
+        run_id::Union{Nothing, AbstractString} = nothing,
     )::DataFrame
 
 Build a model from `cfg`, run it for `n_steps`, and return a
 `DataFrame` with one row per agent per tick. Columns:
 `tick`, `agent_id`, `opinion`, `persona_id`. Tick 0 is the initial
 state; tick `n_steps` is the post-final-step state.
+
+When `run_id` is given, the run is also persisted to
+`runs/<run_id>/store.duckdb` per ADR-0004: `meta` and `personas` are
+written once at start, then [`flush_tick!`](@ref) is called after each
+step (including a tick-0 dump of the initial state). When `run_id` is
+`nothing`, no disk I/O happens — Phase 2 behaviour is preserved.
 
 Phase 2 deliberately ignores `cfg.interventions` — broadcasts and
 similar live interventions are wired in Phase 5 alongside the
@@ -90,11 +97,47 @@ dashboard.
 function run_simulation(
         cfg::WorldConfig;
         brain::AbstractBrain = NullBrain(),
-        n_steps::Integer = cfg.max_ticks
+        n_steps::Integer = cfg.max_ticks,
+        run_id::Union{Nothing, AbstractString} = nothing
 )::DataFrame
-    model = initialize_world(cfg; brain = brain)
-    # Interventions are deferred to Phase 5; ignored here.
-    adf, _ = run!(model, n_steps; adata = [:opinion, :persona_id])
-    rename!(adf, :time => :tick, :id => :agent_id)
-    return adf[!, [:tick, :agent_id, :opinion, :persona_id]]
+    if run_id === nothing
+        model = initialize_world(cfg; brain = brain)
+        # Interventions are deferred to Phase 5; ignored here.
+        adf, _ = run!(model, n_steps; adata = [:opinion, :persona_id])
+        rename!(adf, :time => :tick, :id => :agent_id)
+        return adf[!, [:tick, :agent_id, :opinion, :persona_id]]
+    end
+
+    return open_store(run_id) do db
+        record_meta(db, cfg; run_id = run_id)
+        model = initialize_world(cfg; brain = brain)
+        ticks = Int[]
+        ids = Int[]
+        opinions = Float64[]
+        persona_ids = String[]
+        _collect_tick!(ticks, ids, opinions, persona_ids, model, 0)
+        flush_tick!(db, model, 0)
+        for t in 1:n_steps
+            step!(model, 1)
+            _collect_tick!(ticks, ids, opinions, persona_ids, model, t)
+            flush_tick!(db, model, t)
+        end
+        return DataFrame(
+            tick = ticks,
+            agent_id = ids,
+            opinion = opinions,
+            persona_id = persona_ids
+        )
+    end
+end
+
+function _collect_tick!(ticks, ids, opinions, persona_ids, model, t::Integer)
+    tt = Int(t)
+    for a in allagents(model)
+        push!(ticks, tt)
+        push!(ids, Int(a.id))
+        push!(opinions, a.opinion)
+        push!(persona_ids, String(a.persona_id))
+    end
+    return nothing
 end
