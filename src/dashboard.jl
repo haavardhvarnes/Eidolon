@@ -150,7 +150,7 @@ const _NETWORK_LAYOUT = PlotLayout(
         if sim_status == "running"
             _paused   = false
             _stopping = false
-            _launch_simulation!()
+            _launch_simulation!(__model__)
         end
     end
 
@@ -190,7 +190,7 @@ const _NETWORK_LAYOUT = PlotLayout(
 
     @onchange do_broadcast begin
         if do_broadcast && !isempty(broadcast_text)
-            _inject_broadcast!()
+            _inject_broadcast!(__model__)
             do_broadcast = false
         end
     end
@@ -218,7 +218,7 @@ end
     init_ops = [Float64(a.opinion) for a in allagents(abm)]
     network_traces = [_edge_trace(g, positions), _node_trace(positions, init_ops)]
 
-    @async _run_loop!(abm, cfg)
+    @async _run_loop!(__model__, abm, cfg)
 end
 
 @handler DashboardModel function _run_loop!(abm, cfg::WorldConfig)
@@ -292,19 +292,19 @@ function _ui(model::DashboardModel)
                 btn("Start",
                     @click("sim_status = 'running'"),
                     color = "positive",
-                    [Symbol(":disable") => "sim_status !== 'idle'"]
+                    @iif("sim_status === 'idle'")
                 ),
-                btn(" Pause",
+                btn("Pause",
                     @click("do_pause = true"),
                     color = "warning",
-                    [Symbol(":disable") => "sim_status !== 'running'"]
+                    @iif("sim_status === 'running'")
                 ),
-                btn(" Resume",
+                btn("Resume",
                     @click("do_resume = true"),
                     color = "info",
-                    [Symbol(":disable") => "sim_status !== 'paused'"]
+                    @iif("sim_status === 'paused'")
                 ),
-                btn(" Reset",
+                btn("Reset",
                     @click("do_reset = true"),
                     color = "negative"
                 ),
@@ -333,10 +333,10 @@ function _ui(model::DashboardModel)
             cell(col = 12, [
                 h3("Broadcast"),
                 textfield("Message", :broadcast_text),
-                btn(" Broadcast",
+                btn("Broadcast",
                     @click("do_broadcast = true"),
                     color = "primary",
-                    [Symbol(":disable") => "sim_status === 'idle'"]
+                    @iif("sim_status !== 'idle'")
                 ),
             ]),
         ]),
